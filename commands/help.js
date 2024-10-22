@@ -1,25 +1,22 @@
 const fs = require('fs');
 const path = require('path');
 
-exports.config = {
+module.exports = {
   name: 'help',
   description: 'Show available commands',
   author: 'System',
-  category: 'system',
-  guide: ''
-};
+  execute(senderId, args, pageAccessToken, sendMessage) {
+    const commandsDir = path.join(__dirname, '../commands');
+    const commandFiles = fs.readdirSync(commandsDir).filter(file => file.endsWith('.js'));
 
-exports.initialize = async function({ senderId, args, token, bot }) {
-  const commandsDir = path.join(__dirname, '../commands');
-  const commandFiles = fs.readdirSync(commandsDir).filter(file => file.endsWith('.js'));
+    const commands = commandFiles.map(file => {
+      const command = require(path.join(commandsDir, file));
+      return `⟿ ${command.name}\n  - ${command.description}\n  - Credits: ${command.author}`;
+    });
 
-  const commands = commandFiles.map(file => {
-    const command = require(path.join(commandsDir, file));
-    return `⦿ ${command.config.name}\n  - ${command.config.description}`;
-  });
-
-  const totalCommands = commandFiles.length;
-  const helpMessage = `List of Commands\n\n${commands.join('\n\n')}\n\nTotal Commands: ${totalCommands}`;
-
-  bot.send(senderId, { text: helpMessage }, token);
+    const totalCommands = commandFiles.length;
+    const helpMessage = `Here are the available commands: \nTotal commands: ${totalCommands} \n\n${commands.join('\n\n')}`;
+    
+    sendMessage(senderId, { text: helpMessage }, pageAccessToken);
+  }
 };
