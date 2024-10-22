@@ -1,31 +1,57 @@
 const axios = require('axios');
 
-exports.config = {
+module.exports = {
   name: 'lyrics',
-  description: 'Fetch song lyrics by song title or artist',
+  description: 'Fetch song lyrics',
   author: 'Mart John Labaco',
-  category: 'music',
-  guide: 'Use the command followed by the song title or artist name to fetch the lyrics.'
-};
+  async execute(senderId, args, pageAccessToken, sendMessage) {
+    const query = args.join(' ');
+    try {
+      const apiUrl = `https://king-luffy.onrender.com/api/lyrics?query=${encodeURIComponent(query)}`;
+      const response = await axios.get(apiUrl);
+      const result = response.data.result;
 
-exports.initialize = async function({ senderId, args, token, bot }) {
-  if (!args.length) {
-    return bot.sendMessage(senderId, 'Please provide a song title or artist to search for lyrics.');
-  }
+      if (result && result.lyrics) {
+        const lyricsMessage = `Title: ${result.title}\nArtist: ${result.artist}\n\n${result.lyrics}`;
 
-  const query = args.join(' ');
-  const apiUrl = `https://king-luffy.onrender.com/api/lyrics?query=${encodeURIComponent(query)}`;
+        // Split the lyrics message into chunks if it exceeds 2000 characters
+        const maxMessageLength = 2000;
+        if (lyricsMessage.length > maxMessageLength) {
+          const messages = splitMessageIntoChunks(lyricsMessage, maxMessageLength);
+          for (const message of messages) {
+            sendMessage(senderId, { text: message }, pageAccessToken);
+          }
+        } else {
+          sendMessage(senderId, { text: lyricsMessage }, pageAccessToken);
+        }
 
-  try {
-    const response = await axios.get(apiUrl);
-    const data = response.data;
-
-    if (data.status && data.result && data.result.lyrics) {
-      bot.sendMessage(senderId, data.result.lyrics);
-    } else {
-      bot.sendMessage(senderId, 'Sorry, no lyrics found for your query.');
+        // Optionally send an image if available
+        if (result.image) {
+          sendMessage(senderId, {
+            attachment: {
+              type: 'image',
+              payload: {
+                url: result.image,
+                is_reusable: true
+              }
+            }
+          }, pageAccessToken);
+        }
+      } else {
+        console.error('Error: No lyrics found in the response.');
+        sendMessage(senderId, { text: 'Sorry, no lyrics were found for your query.' }, pageAccessToken);
+      }
+    } catch (error) {
+      console.error('Error calling Lyrics API:', error);
+      sendMessage(senderId, { text: 'Sorry, there was an error processing your request.' }, pageAccessToken);
     }
-  } catch (error) {
-    bot.sendMessage(senderId, 'An error occurred while fetching lyrics.');
   }
 };
+
+function splitMessageIntoChunks(message, chunkSize) {
+  const chunks = [];
+  for (let i = 0; i < message.length; i += chunkSize) {
+    chunks.push(message.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
