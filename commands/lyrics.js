@@ -2,59 +2,30 @@ const axios = require('axios');
 
 exports.config = {
   name: 'lyrics',
-  description: 'Fetch song lyrics',
-  author: 'Deku (rest api)',
+  description: 'Fetch song lyrics by song title or artist',
+  author: 'Mart John Labaco',
   category: 'music',
-  guide: '<song name>'
+  guide: 'Use the command followed by the song title or artist name to fetch the lyrics.'
 };
 
 exports.initialize = async function({ senderId, args, token, bot }) {
+  if (!args.length) {
+    return bot.sendMessage(senderId, 'Please provide a song title or artist to search for lyrics.');
+  }
+
   const query = args.join(' ');
+  const apiUrl = `https://king-luffy.onrender.com/api/lyrics?query=${encodeURIComponent(query)}`;
+
   try {
-    const apiUrl = `https://deku-rest-apis.ooguy.com/search/lyrics?q=${encodeURIComponent(query)}`;
     const response = await axios.get(apiUrl);
-    const result = response.data.result;
+    const data = response.data;
 
-    if (result && result.lyrics) {
-      const lyricsMessage = `Title: ${result.title}\nArtist: ${result.artist}\n\n${result.lyrics}`;
-
-      // Split the lyrics message into chunks if it exceeds 2000 characters
-      const maxMessageLength = 2000;
-      if (lyricsMessage.length > maxMessageLength) {
-        const messages = splitMessageIntoChunks(lyricsMessage, maxMessageLength);
-        for (const message of messages) {
-          bot.send(senderId, { text: message }, token);
-        }
-      } else {
-        bot.send(senderId, { text: lyricsMessage }, token);
-      }
-
-      // Optionally send an image if available
-      if (result.image) {
-        bot.send(senderId, {
-          attachment: {
-            type: 'image',
-            payload: {
-              url: result.image,
-              is_reusable: true
-            }
-          }
-        }, token);
-      }
+    if (data.status && data.result && data.result.lyrics) {
+      bot.sendMessage(senderId, data.result.lyrics);
     } else {
-      console.error('Error: No lyrics found in the response.');
-      bot.send(senderId, { text: 'Sorry, no lyrics were found for your query.' }, token);
+      bot.sendMessage(senderId, 'Sorry, no lyrics found for your query.');
     }
   } catch (error) {
-    console.error('Error calling Lyrics API:', error);
-    bot.send(senderId, { text: 'Sorry, there was an error processing your request.' }, token);
+    bot.sendMessage(senderId, 'An error occurred while fetching lyrics.');
   }
 };
-
-function splitMessageIntoChunks(message, chunkSize) {
-  const chunks = [];
-  for (let i = 0; i < message.length; i += chunkSize) {
-    chunks.push(message.slice(i, i + chunkSize));
-  }
-  return chunks;
-}
